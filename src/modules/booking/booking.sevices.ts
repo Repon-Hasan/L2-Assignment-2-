@@ -11,7 +11,7 @@ const createBooking = async (body: Record<string, unknown>) => {
         $3, 
         $4, 
         (($4::date - $3::date) + 1) * daily_rent_price, 
-           'available'
+           'Booking'
             FROM Vehicles
      WHERE id = $2
     RETURNING *
