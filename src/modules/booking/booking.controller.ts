@@ -45,6 +45,7 @@ export const getBookings = async (req: Request, res: Response) => {
   }
 };
 
+
 const updateBookings = async (req: Request, res: Response) => {
   const { status } = req.body;
   const { bookingId } = req.params;
@@ -57,6 +58,7 @@ const updateBookings = async (req: Request, res: Response) => {
       `SELECT * FROM Bookings WHERE id = $1`,
       [bookingId]
     );
+
     const result = await bookingServices.updateBookings(status, bookingId!);
 
     if (result.rowCount === 0) {
@@ -74,6 +76,75 @@ const updateBookings = async (req: Request, res: Response) => {
       `,
       [vehicle_id]
     );
+
+    
+
+const startedDateResult = await pool.query(
+  `SELECT rent_start_date FROM Bookings WHERE id = $1`,
+  [bookingId]
+);
+
+if (startedDateResult.rows.length === 0) {
+  return res.status(404).json({
+    success: false,
+    message: "Booking not found",
+  });
+}
+
+const startedDate = new Date(startedDateResult.rows[0].rent_start_date);
+
+
+
+if (role === "customer" && startedDate <= new Date()) {
+  return res.status(400).json({
+    success: false,
+    message: "You can't cancel this booking because it has already started",
+  });
+}
+
+
+
+const endedDateResult = await pool.query(
+  `SELECT rent_end_date, vehicle_id  FROM Bookings WHERE id = $1`,
+  [bookingId]
+);
+
+if (endedDateResult.rows.length === 0) {
+  return res.status(404).json({
+    success: false,
+    message: "Booking not found",
+  });
+}
+
+const endedDate = new Date(endedDateResult.rows[0].rent_end_date);
+
+
+
+if (role === "customer" && startedDate <= new Date()) {
+  return res.status(400).json({
+    success: false,
+    message: "You can't cancel this booking because it has already started",
+  });
+}
+
+
+if (endedDate < new Date()) {
+  await pool.query(
+    `UPDATE Bookings SET status = 'returned' WHERE id = $1`,
+    [bookingId]
+  );
+
+  await pool.query(
+    `UPDATE Vehicles SET availability_status = 'available' WHERE id = $1`,
+    [vehicle_id]
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: "Booking period ended. Auto-marked as returned",
+  });
+}
+
 
     if (role === "admin" && status === "returned") {
       return res.status(200).json({
