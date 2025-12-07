@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { bookingServices } from "./booking.sevices";
+import { pool } from "../../database/dbConnect";
 
 const createBookings=async(req:Request,res:Response)=>{
     const body=req.body
@@ -48,10 +49,14 @@ const updateBookings = async (req: Request, res: Response) => {
   const { status } = req.body;
   const { bookingId } = req.params;
 
+
   const role = (req as any).user.role; 
 
   try {
- 
+     const booking = await pool.query(
+      `SELECT * FROM Bookings WHERE id = $1`,
+      [bookingId]
+    );
     const result = await bookingServices.updateBookings(status, bookingId!);
 
     if (result.rowCount === 0) {
@@ -60,6 +65,15 @@ const updateBookings = async (req: Request, res: Response) => {
         message: "Booking not found",
       });
     }
+        const vehicle_id = booking.rows[0].vehicle_id; 
+            await pool.query(
+      `
+        UPDATE Vehicles 
+        SET availability_status = 'available' 
+        WHERE id = $1
+      `,
+      [vehicle_id]
+    );
 
     if (role === "admin" && status === "returned") {
       return res.status(200).json({
@@ -74,6 +88,8 @@ const updateBookings = async (req: Request, res: Response) => {
       message: "Booking cancelled successfully",
       data: result.rows[0],
     });
+    
+
 
   } catch (error: any) {
     res.status(500).json({
